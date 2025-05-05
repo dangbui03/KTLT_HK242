@@ -1,49 +1,34 @@
 /*
- * Ho Chi Minh City University of Technology
- * Faculty of Computer Science and Engineering
- * Initial code for Assignment 2
- * Programming Fundamentals Spring 2025
- * Date: 02.02.2025
+ * Ho Chi Minh City University of Technology – Assignment 2
+ * MOST OF THE LOGIC IS IMPLEMENTED IN hcmcampaign.cpp
+ * Do NOT add more #include here (see requirement 5 in pdf).
  */
-
-// The library here is concretely set, students are not allowed to include any other libraries.
 #ifndef _H_HCM_CAMPAIGN_H_
 #define _H_HCM_CAMPAIGN_H_
 
-#include "main.h"
+#include "main.h" // đã khai báo <string>, <vector>, <cmath>, …
 
-////////////////////////////////////////////////////////////////////////
-/// STUDENT'S ANSWER BEGINS HERE
-/// Complete the following functions
-/// DO NOT modify any parameters in the functions.
-////////////////////////////////////////////////////////////////////////
-
-// Forward declaration
+// ======================= Forward declarations =======================
 class Unit;
 class UnitList;
 class Army;
 class TerrainElement;
-
 class Vehicle;
 class Infantry;
-
 class LiberationArmy;
 class ARVN;
-
 class Position;
-
 class Road;
 class Mountain;
 class River;
 class Urban;
 class Fortification;
 class SpecialZone;
-
 class BattleField;
-
 class HCMCampaign;
 class Configuration;
 
+// ======================= Enumerations ===============================
 enum VehicleType
 {
     TRUCK,
@@ -64,35 +49,21 @@ enum InfantryType
     REGULARINFANTRY
 };
 
-class Army
-{
-protected:
-    int LF, EXP;
-    string name;
-    UnitList *unitList;
-    BattleField *battleField;
-
-public:
-    Army(Unit **unitArray, int size, string name, BattleField *battleField);
-    virtual void fight(Army *enemy, bool defense = false) = 0;
-    virtual string str() const = 0;
-};
-
+// ======================= POSITION ===================================
 class Position
 {
-private:
     int r, c;
 
 public:
     Position(int r = 0, int c = 0);
-    Position(const string &str_pos); // Example: str_pos = "(1,15)"
+    Position(const string &str_pos); // "(x,y)"
     int getRow() const;
     int getCol() const;
     void setRow(int r);
     void setCol(int c);
-    string str() const; // Example: returns "(1,15)"
+    string str() const;
 };
-
+// ======================= UNIT (abstract) ============================
 class Unit
 {
 protected:
@@ -105,52 +76,208 @@ public:
     virtual int getAttackScore() = 0;
     Position getCurrentPosition() const;
     virtual string str() const = 0;
+    int getQuantity() const { return quantity; }
+    void increaseQuantity(int delta) { quantity += delta; }
+    void scaleQuantity(double factor) // nhân & làm tròn lên
+    {
+        quantity = static_cast<int>(std::ceil(quantity * factor));
+    }
+};
+// ======================= VEHICLE & INFANTRY =========================
+class Vehicle : public Unit
+{
+    VehicleType vehicleType;
+
+public:
+    Vehicle(int quantity, int weight, const Position pos, VehicleType type);
+    VehicleType getType() const;
+    int getAttackScore() override;
+    string str() const override;
 };
 
+class Infantry : public Unit
+{
+    InfantryType infantryType;
+    bool isPerfectSquare(int x) const;
+    int personalNumber(int number) const;
+
+public:
+    Infantry(int quantity, int weight, const Position pos, InfantryType type);
+    InfantryType getType() const;
+    int getAttackScore() override;
+    string str() const override;
+};
+// ======================= UNIT LIST ==================================
 class UnitList
 {
-private:
-    int capacity;
-    // TODO
+    struct Node
+    {
+        Unit *data;
+        Node *next;
+        Node(Unit *u) : data(u), next(nullptr) {}
+    };
+    Node *head;
+    Node *tail;
+    int capacity, sizeV, sizeI, length;
+    bool isVehicle(Unit *u) const;
+    bool sameVehicle(Node *n, VehicleType t) const;
+    bool sameInfantry(Node *n, InfantryType t) const;
+
 public:
     UnitList(int capacity);
-    bool insert(Unit *unit);                   // return true if insert successfully
-    bool isContain(VehicleType vehicleType);   // return true if it exists
-    bool isContain(InfantryType infantryType); // return true if it exists
+    ~UnitList();
+    bool insert(Unit *unit);                   // true if inserted
+    bool isContain(VehicleType vehicleType);   // true if exists
+    bool isContain(InfantryType infantryType); // true if exists
+    int vehicleCount() const { return sizeV; }
+    int infantryCount() const { return sizeI; }
     string str() const;
-    // TODO
+    // simple traversal helpers
+    template <typename F>
+    void forEach(F func) const
+    {
+        for (Node *p = head; p; p = p->next)
+            func(p->data);
+    }
 };
-
+// ======================= TERRAIN ====================================
 class TerrainElement
 {
+protected:
+    Position pos;
+
 public:
-    TerrainElement();
-    ~TerrainElement();
+    TerrainElement(Position p) : pos(p) {}
+    virtual ~TerrainElement() {}
     virtual void getEffect(Army *army) = 0;
 };
-
-class BattleField
+class Road : public TerrainElement
 {
-private:
-    int n_rows, n_cols;
-    // TODO
 public:
-    BattleField(int n_rows, int n_cols, vector<Position *> arrayForest,
-                vector<Position *> arrayRiver, vector<Position *> arrayFortification,
-                vector<Position *> arrayUrban, vector<Position *> arraySpecialZone);
-    ~BattleField();
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override {}
+};
+class Mountain : public TerrainElement
+{
+public:
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override;
+};
+class River : public TerrainElement
+{
+public:
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override;
+};
+class Urban : public TerrainElement
+{
+public:
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override;
+};
+class Fortification : public TerrainElement
+{
+public:
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override;
+};
+class SpecialZone : public TerrainElement
+{
+public:
+    using TerrainElement::TerrainElement;
+    void getEffect(Army *) override;
 };
 
+// ======================= BATTLE FIELD ===============================
+class BattleField
+{
+    int n_rows, n_cols;
+    vector<vector<TerrainElement *>> terrain; // nullptr = road
+public:
+    BattleField(int n_rows, int n_cols,
+                vector<Position *> forest,
+                vector<Position *> river,
+                vector<Position *> fortification,
+                vector<Position *> urban,
+                vector<Position *> special);
+    ~BattleField();
+    string str() const;
+    TerrainElement *at(int r, int c) const;
+};
+// ======================= ARMY (abstract) ============================
+class Army
+{
+protected:
+    int LF, EXP;
+    string name;
+    UnitList *unitList;
+    BattleField *battleField;
+
+    static bool isSpecial(int S); // helper for capacity (pdf 3.5)
+    void recalcIndices();         // recompute LF & EXP from list
+public:
+    Army(Unit **unitArray, int size, string name, BattleField *bf);
+    virtual ~Army();
+    virtual void fight(Army *enemy, bool defense = false) = 0;
+    virtual string str() const = 0;
+    int getLF() const { return LF; }
+    int getEXP() const { return EXP; }
+};
+// ---------------- LiberationArmy & ARVN -----------------------------
+class LiberationArmy : public Army
+{
+    void confiscate(Army *enemy);
+
+public:
+    LiberationArmy(Unit **unitArray, int size, string name, BattleField *bf);
+    void fight(Army *enemy, bool defense = false) override;
+    string str() const override;
+};
+class ARVN : public Army
+{
+public:
+    ARVN(Unit **unitArray, int size, string name, BattleField *bf);
+    void fight(Army *enemy, bool defense = false) override;
+    string str() const override;
+};
+// ======================= CONFIGURATION ==============================
+class Configuration
+{
+    int num_rows, num_cols;
+    vector<Position *> arrForest, arrRiver, arrFort, arrUrban, arrSpecial;
+    vector<Unit *> liberationUnits, ARVNUnits;
+    int eventCode;
+    void parseUnit(const string &token);
+    Position *parsePos(const string &token);
+
+public:
+    Configuration(const string &filepath);
+    ~Configuration();
+    int rows() const { return num_rows; }
+    int cols() const { return num_cols; }
+    vector<Position *> &forest() { return arrForest; }
+    vector<Position *> &river() { return arrRiver; }
+    vector<Position *> &fort() { return arrFort; }
+    vector<Position *> &urban() { return arrUrban; }
+    vector<Position *> &special() { return arrSpecial; }
+    Unit **libArray();
+    int libSize() const;
+    Unit **arvnArray();
+    int arvnSize() const;
+    int getEventCode() const { return eventCode; }
+    string str() const;
+};
+// ======================= CAMPAIGN ===================================
 class HCMCampaign
 {
-private:
     Configuration *config;
     BattleField *battleField;
     LiberationArmy *liberationArmy;
-    ARVN *ARVN;
+    ARVN *arvn;
 
 public:
     HCMCampaign(const string &config_file_path);
+    ~HCMCampaign();
     void run();
     string printResult();
 };

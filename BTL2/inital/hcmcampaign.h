@@ -94,6 +94,7 @@ public:
     VehicleType getType() const;
     int getAttackScore() override;
     string str() const override;
+    string vehicleTypeToString(VehicleType type) const;
 };
 
 class Infantry : public Unit
@@ -215,8 +216,9 @@ protected:
     BattleField *battleField;
 
     static bool isSpecial(int S); // helper for capacity (pdf 3.5)
-    void recalcIndices();         // recompute LF & EXP from list
+
 public:
+    void recalcIndices();         // recompute LF & EXP from list
     Army(Unit **unitArray, int size, string name, BattleField *bf);
     virtual ~Army();
     virtual void fight(Army *enemy, bool defense = false) = 0;

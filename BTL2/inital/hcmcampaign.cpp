@@ -1,510 +1,394 @@
 #include "hcmcampaign.h"
-#include <fstream>
-#include <sstream>
-#include <cmath>
-#include <iomanip> // for ceil in scores
 
-// ======== Position ==================================================
-Position::Position(int r, int c) : r(r), c(c) {}
-Position::Position(const string &s)
+////////////////////////////////////////////////////////////////////////
+/// STUDENT'S ANSWER BEGINS HERE
+////////////////////////////////////////////////////////////////////////
+
+// Kiểm tra có phải số chính phương không
+bool isPerfectSquare(int n)
 {
-    sscanf(s.c_str(), "(%d,%d)", &r, &c);
+    if (n < 0)
+        return false;                      // Số âm không thể là số chính phương
+    int sqrtN = static_cast<int>(sqrt(n)); // Lấy căn bậc hai của n
+    return (sqrtN * sqrtN == n);           // Kiểm tra nếu căn bậc hai đã làm tròn lại bình phương ra số ban đầu
 }
-int Position::getRow() const { return r; }
-int Position::getCol() const { return c; }
-void Position::setRow(int _r) { r = _r; }
-void Position::setCol(int _c) { c = _c; }
+
+#pragma region Position
+Position::Position(int r, int c)
+{
+    this->r = r;
+    this->c = c;
+};
+
 string Position::str() const
 {
-    stringstream ss;
-    ss << "(" << r << "," << c << ")";
-    return ss.str();
-}
+    return "(" + to_string(r) + "," + to_string(c) + ")";
+};
 
-// ======== Unit base =================================================
-Unit::Unit(int q, int w, Position p) : quantity(q), weight(w), pos(p) {}
-Unit::~Unit() = default;
-Position Unit::getCurrentPosition() const { return pos; }
+int Position::getRow() const
+{
+    return r;
+};
 
-// ======== Vehicle ===================================================
-Vehicle::Vehicle(int q, int w, const Position p, VehicleType t) : Unit(q, w, p), vehicleType(t) {}
-VehicleType Vehicle::getType() const { return vehicleType; }
-int Vehicle::getAttackScore()
+int Position::getCol() const
 {
-    long long base = (static_cast<int>(vehicleType)) * 304LL + quantity * weight;
-    return static_cast<int>(ceil(base / 30.0));
-}
-string Vehicle::str() const
-{
-    stringstream ss;
-    ss << "Vehicle[vehicleType=" << vehicleType << ",quantity=" << quantity
-       << ",weight=" << weight << ",pos=" << pos.str() << "]";
-    return ss.str();
-}
+    return c;
+};
 
-// ======== Infantry ==================================================
-bool Infantry::isPerfectSquare(int x) const
+void Position::setRow(int r)
 {
-    int r = static_cast<int>(sqrt(x));
-    return r * r == x;
-}
-int Infantry::personalNumber(int num) const
-{
-    auto digitSum = [](int x)
-    {int s=0;while(x){s+=x%10;x/=10;}return s; };
-    int y = digitSum(num) + digitSum(1975);
-    while (y >= 10)
-        y = digitSum(y);
-    return y;
-}
-Infantry::Infantry(int q, int w, const Position p, InfantryType t) : Unit(q, w, p), infantryType(t) {}
-InfantryType Infantry::getType() const { return infantryType; }
-int Infantry::getAttackScore()
-{
-    int score = static_cast<int>(infantryType) * 56 + quantity * weight;
-    if (infantryType == SPECIALFORCES && isPerfectSquare(weight))
-        score += 75;
-    int pn = personalNumber(score);
-    if (pn > 7)
-    {
-        quantity = static_cast<int>(ceil(quantity * 1.2));
-        score = static_cast<int>(infantryType) * 56 + quantity * weight;
-    }
-    else if (pn < 3)
-    {
-        quantity = static_cast<int>(ceil(quantity * 0.9));
-        score = static_cast<int>(infantryType) * 56 + quantity * weight;
-    }
-    return score;
-}
-string Infantry::str() const
-{
-    stringstream ss;
-    ss << "Infantry[infantryType=" << infantryType << ",quantity=" << quantity
-       << ",weight=" << weight << ",pos=" << pos.str() << "]";
-    return ss.str();
-}
+    this->r = r;
+};
 
-// ======== UnitList ==================================================
-bool UnitList::isVehicle(Unit *u) const
+void Position::setCol(int c)
 {
-    return dynamic_cast<Vehicle *>(u) != nullptr;
-}
-UnitList::UnitList(int cap) : head(nullptr), tail(nullptr), capacity(cap), sizeV(0), sizeI(0), length(0) {}
-UnitList::~UnitList()
+    this->c = c;
+};
+#pragma endregion Position
+
+#pragma region Unit
+Unit::Unit(int quantity, int weight, Position pos)
 {
-    Node *p = head;
-    while (p)
+    this->quantity = quantity;
+    this->weight = weight;
+    this->pos = pos;
+};
+
+Unit::~Unit() {};
+
+Position Unit::getCurrentPosition() const
+{
+    return pos;
+};
+
+string Unit::str() const
+{
+    return "";
+};
+#pragma endregion Unit
+
+class Vehicle : public Unit
+{
+private:
+    VehicleType vehicleType;
+
+    string vehicleTypeToString(VehicleType type) const
     {
-        Node *t = p->next;
-        delete p->data;
-        delete p;
-        p = t;
-    }
-}
-bool UnitList::sameVehicle(Node *n, VehicleType t) const
-{
-    auto *v = dynamic_cast<Vehicle *>(n->data);
-    return v && v->getType() == t;
-}
-bool UnitList::sameInfantry(Node *n, InfantryType t) const
-{
-    auto *i = dynamic_cast<Infantry *>(n->data);
-    return i && i->getType() == t;
-}
-bool UnitList::insert(Unit *u)
-{
-    if (length >= capacity)
-        return false;
-    // check duplication
-    if (isVehicle(u))
-    {
-        Vehicle *v = dynamic_cast<Vehicle *>(u);
-        for (Node *p = head; p; p = p->next)
+        switch (type)
         {
-            if (sameVehicle(p, v->getType()))
-            {
-                auto *ov = dynamic_cast<Vehicle *>(p->data);
-                ov->increaseQuantity(v->getQuantity());
-                delete v;
-                return true;
-            }
+        case TRUCK:
+            return "TRUCK";
+        case MORTAR:
+            return "MORTAR";
+        case ANTIAIRCRAFT:
+            return "ANTIAIRCRAFT";
+        case ARMOREDCAR:
+            return "ARMOREDCAR";
+        case APC:
+            return "APC";
+        case ARTILLERY:
+            return "ARTILLERY";
+        case TANK:
+            return "TANK";
+        default:
+            return "Unknown VehicleType";
         }
     }
-    else
+
+public:
+    Vehicle(int quantity, int weight, const Position pos, VehicleType vehicleType)
+        : Unit(quantity, weight, pos), vehicleType(vehicleType)
     {
-        Infantry *i = dynamic_cast<Infantry *>(u);
-        for (Node *p = head; p; p = p->next)
+    }
+    ~Vehicle() {} // Clean up memory
+
+    int getAttackScore() override
+    {
+        int typeValue = vehicleType;
+        int score = (typeValue * 304 + quantity * weight) / 30;
+        if (score > 1000)
+            score = 1000;
+        else if (score < 0)
+            score = 0;
+        return score; // Round to threshold if exceeds
+    }
+
+    string str() const override
+    {
+        return "Vehicle[" + vehicleTypeToString(vehicleType) + '=' + to_string(vehicleType) + "," + to_string(quantity) + "," + to_string(weight) + "," + pos.str() + "]";
+    }
+};
+
+class Infantry : public Unit
+{
+private:
+    InfantryType infantryType;
+
+    // tìm tổng các chữ số của một số
+    int sumOfDigits(int num)
+    {
+        int sum = 0;
+        while (num > 0)
         {
-            if (sameInfantry(p, i->getType()))
-            {
-                auto *oi = dynamic_cast<Infantry *>(p->data);
-                oi->increaseQuantity(i->getQuantity());
-                delete i;
-                return true;
-            }
+            sum += num % 10;
+            num /= 10;
+        }
+        return sum;
+    }
+
+    // Tìm số cá nhân
+    int getPersonalScore(int score)
+    {
+        int personalScore = sumOfDigits(score) + sumOfDigits(1975);
+        while (personalScore > 9)
+        {
+            personalScore = sumOfDigits(personalScore);
+        }
+        return personalScore;
+    }
+
+    string infantryTypeToString(InfantryType type) const
+    {
+        switch (type)
+        {
+        case SNIPER:
+            return "SNIPER";
+        case ANTIAIRCRAFTSQUAD:
+            return "ANTIAIRCRAFTSQUAD";
+        case MORTARSQUAD:
+            return "MORTARSQUAD";
+        case ENGINEER:
+            return "ENGINEER";
+        case SPECIALFORCES:
+            return "SPECIALFORCES";
+        case REGULARINFANTRY:
+            return "REGULARINFANTRY";
+        default:
+            return "Unknown InfantryType";
         }
     }
-    Node *node = new Node(u);
-    if (isVehicle(u))
-    { // add to tail
-        if (!tail)
-            head = tail = node;
+
+public:
+    Infantry(int quantity, int weight, const Position pos, InfantryType infantryType) : Unit(quantity, weight, pos), infantryType(infantryType) {}
+
+    ~Infantry() {}
+
+    int getAttackScore() override
+    {
+        int typeValue = infantryType;
+        int score = typeValue * 56 + quantity * weight;
+
+        if ((infantryType == SPECIALFORCES) && isPerfectSquare(weight))
+        {
+            score += 75;
+        }
+
+        int personalScore = getPersonalScore(score);
+        if (personalScore > 7)
+        {
+            quantity = (int)ceil(quantity * 1.2);
+            score = typeValue * 56 + quantity * weight;
+        }
+        else if (personalScore < 4)
+        {
+            quantity = (int)ceil(quantity * 0.9);
+        }
+
+        if (score > 500)
+            score = 500;
+        else if (score < 0)
+            score = 0;
+        return score;
+    }
+
+    string str() const override
+    {
+        return "Infantry[" + infantryTypeToString(infantryType) + '=' + to_string(infantryType) + "," + to_string(quantity) + "," + to_string(weight) + "," + pos.str() + "]";
+    }
+};
+
+Army::Army(Unit **unitArray, int size, string name, BattleField *battleField) : LF(0), EXP(0), name(name), unitList(nullptr), battleField(battleField)
+{
+    for (int i = 0; i < size; i++)
+    {
+        Vehicle *vehicle = dynamic_cast<Vehicle *>(unitArray[i]);
+        if (vehicle != nullptr)
+        {
+            LF += vehicle->getAttackScore();
+        }
         else
         {
-            tail->next = node;
-            tail = node;
-        }
-        ++sizeV;
-    }
-    else
-    { // add to head
-        node->next = head;
-        head = node;
-        if (!tail)
-            tail = head;
-        ++sizeI;
-    }
-    ++length;
-    return true;
-}
-bool UnitList::isContain(VehicleType t)
-{
-    for (Node *p = head; p; p = p->next)
-        if (sameVehicle(p, t))
-            return true;
-    return false;
-}
-bool UnitList::isContain(InfantryType t)
-{
-    for (Node *p = head; p; p = p->next)
-        if (sameInfantry(p, t))
-            return true;
-    return false;
-}
-string UnitList::str() const
-{
-    stringstream ss;
-    ss << "UnitList[count_vehicle=" << sizeV << ";count_infantry=" << sizeI << ";";
-    Node *p = head;
-    while (p)
-    {
-        ss << p->data->str();
-        if (p->next)
-            ss << ",";
-        p = p->next;
-    }
-    ss << "]";
-    return ss.str();
-}
-
-// ======== BattleField ===============================================
-BattleField::BattleField(int r, int c, vector<Position *> forest, vector<Position *> river,
-                         vector<Position *> fort, vector<Position *> urban, vector<Position *> special)
-    : n_rows(r), n_cols(c)
-{
-    terrain.assign(n_rows, vector<TerrainElement *>(n_cols, nullptr));
-    auto place = [this](vector<Position *> &arr, auto maker)
-    {
-        for (auto *p : arr)
-        {
-            if (p->getRow() < n_rows && p->getCol() < n_cols)
+            Infantry *infantry = dynamic_cast<Infantry *>(unitArray[i]);
+            if (infantry != nullptr)
             {
-                delete terrain[p->getRow()][p->getCol()];
-                terrain[p->getRow()][p->getCol()] = maker(*p);
+                EXP += infantry->getAttackScore();
             }
         }
-    };
-    place(forest, [](Position p)
-          { return new Mountain(p); });
-    place(river, [](Position p)
-          { return new River(p); });
-    place(fort, [](Position p)
-          { return new Fortification(p); });
-    place(urban, [](Position p)
-          { return new Urban(p); });
-    place(special, [](Position p)
-          { return new SpecialZone(p); });
-}
-BattleField::~BattleField()
-{
-    for (auto &row : terrain)
-        for (auto *t : row)
-            delete t;
-}
-TerrainElement *BattleField::at(int r, int c) const
-{
-    if (r < 0 || c < 0 || r >= n_rows || c >= n_cols)
-        return nullptr;
-    return terrain[r][c];
-}
-string BattleField::str() const
-{
-    stringstream ss;
-    ss << "BattleField[n_rows=" << n_rows << ",n_cols=" << n_cols << "]";
-    return ss.str();
-}
-
-// ======== Terrain effects (simple placeholder) ======================
-void Mountain::getEffect(Army *army) { /* see pdf table */ }
-void River::getEffect(Army *army) { /* reduce infantry attack 10% */ }
-void Urban::getEffect(Army *army) { /* complex rules – omitted here */ }
-void Fortification::getEffect(Army *army) { /* */ }
-void SpecialZone::getEffect(Army *army) { /* */ }
-
-// ======== Army helper ===============================================
-bool Army::isSpecial(int S)
-{
-    auto check = [S](int base)
-    {
-        int x = S;
-        while (x)
-        {
-            if (x % base > 1)
-                return false;
-            x /= base;
-        }
-        return true;
-    };
-    for (int p : {3, 5, 7})
-        if (check(p))
-            return true;
-    return false;
-}
-void Army::recalcIndices()
-{
-    LF = EXP = 0;
-    unitList->forEach([&](Unit *u)
-                      {
-        if(dynamic_cast<Vehicle*>(u)) LF+=u->getAttackScore();
-        else EXP+=u->getAttackScore(); });
-    if (LF > 1000)
-        LF = 1000;
-    if (EXP > 500)
-        EXP = 500;
-}
-Army::Army(Unit **arr, int sz, string n, BattleField *bf) : name(std::move(n)), battleField(bf)
-{
-    LF = EXP = 0;
-    // temporary list to compute capacity
-    for (int i = 0; i < sz; ++i)
-    {
-        if (dynamic_cast<Vehicle *>(arr[i]))
-            LF += arr[i]->getAttackScore();
-        else
-            EXP += arr[i]->getAttackScore();
-    }
-    int S = LF + EXP;
-    int cap = isSpecial(S) ? 12 : 8;
-    unitList = new UnitList(cap);
-    for (int i = 0; i < sz; ++i)
-        unitList->insert(arr[i]);
-    recalcIndices();
-}
-Army::~Army() { delete unitList; }
-
-// ======== LiberationArmy ============================================
-LiberationArmy::LiberationArmy(Unit **arr, int sz, string n, BattleField *bf)
-    : Army(arr, sz, n, bf) {}
-void LiberationArmy::confiscate(Army *enemy)
-{
-    // move all enemy units into own list
-    // (simple approach: iterate enemy unitList and insert to this->unitList)
-}
-void LiberationArmy::fight(Army *enemy, bool defense)
-{
-    if (!defense)
-    { // attack
-        LF = static_cast<int>(ceil(LF * 1.5));
-        EXP = static_cast<int>(ceil(EXP * 1.5));
-        // simplified win condition: if LF>enemy->getLF() && EXP>enemy->getEXP()
-        if (LF >= enemy->getLF() || EXP >= enemy->getEXP())
-        {
-            confiscate(enemy);
-        }
-    }
-    else
-    { // defend
-        LF = static_cast<int>(ceil(LF * 1.3));
-        EXP = static_cast<int>(ceil(EXP * 1.3));
     }
 }
-string LiberationArmy::str() const
-{
-    stringstream ss;
-    ss << "LiberationArmy[name=" << name << ",LF=" << LF << ",EXP=" << EXP
-       << "," << unitList->str() << "," << battleField->str() << "]";
-    return ss.str();
-}
 
-// ======== ARVN ======================================================
-ARVN::ARVN(Unit **arr, int sz, string n, BattleField *bf) : Army(arr, sz, n, bf) {}
-void ARVN::fight(Army *enemy, bool defense)
+Army::~Army()
 {
-    if (!defense)
-    { // ARVN tấn công
-        unitList->forEach([](Unit *u)
-                          {
-                              u->scaleQuantity(0.8); // ✅ dùng hàm mới
-                          });
-        recalcIndices();
-    }
-    else
-    { // defend
-        // if lost -> confiscated handled by enemy
-    }
-}
-string ARVN::str() const
-{
-    stringstream ss;
-    ss << "ARVN[name=" << name << ",LF=" << LF << ",EXP=" << EXP
-       << "," << unitList->str() << "," << battleField->str() << "]";
-    return ss.str();
-}
-
-// ======== Configuration =============================================
-Position *Configuration::parsePos(const string &t)
-{
-    return new Position(t);
-}
-void Configuration::parseUnit(const string &token)
-{
-    // very simple parser supporting e.g. TANK(5,2,(1,2),0)
-    stringstream ss(token);
-    string name;
-    getline(ss, name, '(');
-    int q, w, bel;
-    char ch;
-    string posStr;
-    ss >> q;
-    ss.ignore(1, ',');
-    ss >> w;
-    ss.ignore(1, ',');
-    getline(ss, posStr, ')');
-    ss >> ch;
-    ss.ignore(1, ',');
-    ss >> bel;
-    Position *p = new Position(posStr);
-    Unit *u = nullptr;
-    if (name == "TANK")
-        u = new Vehicle(q, w, *p, TANK);
-    else if (name == "REGULARINFANTRY")
-        u = new Infantry(q, w, *p, REGULARINFANTRY);
-    //  extend for other names
-    if (bel == 0)
-        liberationUnits.push_back(u);
-    else
-        ARVNUnits.push_back(u);
-}
-Configuration::Configuration(const string &path)
-{
-    ifstream fi(path);
-    string line;
-    while (getline(fi, line))
-    {
-        if (line.find("NUM_ROWS=") == 0)
-            num_rows = stoi(line.substr(9));
-        else if (line.find("NUM_COLS=") == 0)
-            num_cols = stoi(line.substr(9));
-        else if (line.find("ARRAY_FOREST=[") == 0)
-        {
-            size_t l = line.find('[') + 1, r = line.find(']');
-            string arr = line.substr(l, r - l);
-            stringstream ss(arr);
-            string tok;
-            while (getline(ss, tok, ')'))
-            {
-                if (tok.empty())
-                    continue;
-                tok.push_back(')');
-                arrForest.push_back(parsePos(tok));
-                ss.ignore(1, ',');
-            }
-        }
-        // analogous parsing for other arrays (omitted for brevity)
-        else if (line.find("UNIT_LIST=[") == 0)
-        {
-            size_t l = line.find('[') + 1, r = line.find(']');
-            string arr = line.substr(l, r - l);
-            stringstream ss(arr);
-            string tok;
-            while (getline(ss, tok, ')'))
-            {
-                if (tok.empty())
-                    continue;
-                tok.push_back(')');
-                parseUnit(tok);
-                ss.ignore(1, ',');
-            }
-        }
-        else if (line.find("EVENT_CODE=") == 0)
-        {
-            eventCode = stoi(line.substr(11)) % 100;
-        }
-    }
-}
-Configuration::~Configuration()
-{
-    for (auto p : arrForest)
-        delete p;
-    for (auto p : arrRiver)
-        delete p;
-    for (auto p : arrFort)
-        delete p;
-    for (auto p : arrUrban)
-        delete p;
-    for (auto p : arrSpecial)
-        delete p;
-    for (auto u : liberationUnits)
-        delete u;
-    for (auto u : ARVNUnits)
-        delete u;
-}
-Unit **Configuration::libArray() { return liberationUnits.data(); }
-Unit **Configuration::arvnArray() { return ARVNUnits.data(); }
-int Configuration::libSize() const { return (int)liberationUnits.size(); }
-int Configuration::arvnSize() const { return (int)ARVNUnits.size(); }
-string Configuration::str() const
-{
-    stringstream ss;
-    ss << "Configuration[num_rows=" << num_rows << ",num_cols=" << num_cols << "]";
-    return ss.str();
-}
-
-// ======== HCMCampaign ==============================================
-HCMCampaign::HCMCampaign(const string &cfg)
-{
-    config = new Configuration(cfg);
-    battleField = new BattleField(config->rows(), config->cols(),
-                                  config->forest(), config->river(),
-                                  config->fort(), config->urban(), config->special());
-    liberationArmy = new LiberationArmy(config->libArray(), config->libSize(), "Liberation", battleField);
-    arvn = new ARVN(config->arvnArray(), config->arvnSize(), "ARVN", battleField);
-}
-HCMCampaign::~HCMCampaign()
-{
-    delete liberationArmy;
-    delete arvn;
+    delete unitList;
     delete battleField;
-    delete config;
 }
-void HCMCampaign::run()
+
+class LiberationArmy : public Army
 {
-    int ec = config->getEventCode();
-    if (ec < 75)
+public:
+    LiberationArmy(const Unit **unitArray, int size, string name, BattleField *battleField) : Army(const_cast<Unit **>(unitArray), size, name, battleField) {}
+
+    void fight(Army *enemy, bool defense = false) override
     {
-        liberationArmy->fight(arvn, false); // LA attacks
+        if (defense)
+        {
+            this->LF = LF * 1.3;
+            this->EXP = EXP * 1.3;
+        }
+        else
+        {
+            this->LF = LF * 1.5;
+            this->EXP = EXP * 1.5;
+        }
     }
-    else
+
+    string str() const override
     {
-        arvn->fight(liberationArmy, false); // ARVN attacks
-        liberationArmy->fight(arvn, false); // counter attack
+        return "";
+        // return "LiberationArmy[name=" + name + ",LF=" + to_string(LF) + ",EXP=" + to_string(EXP) + ",unitList=" + unitList->str() + ",battleField=" + battleField->str() + "]";
     }
-}
-string HCMCampaign::printResult()
+};
+
+class ARVN : public Army
 {
-    stringstream ss;
-    ss << "LIBERATIONARMY[LF=" << liberationArmy->getLF() << ",EXP=" << liberationArmy->getEXP()
-       << "]-ARVN[LF=" << arvn->getLF() << ",EXP=" << arvn->getEXP() << "]";
-    return ss.str();
-}
+    ARVN(const Unit **unitArray, int size, string name, BattleField *battleField)
+        : Army(const_cast<Unit **>(unitArray), size, name, battleField) {}
+
+    virtual ~ARVN() {}
+
+    void fight(Army *enemy, bool defense = false) override
+    {
+        if (defense)
+        {
+        }
+        else
+        {
+        }
+    }
+
+    string str() const override
+    {
+        return "";
+        // return "ARVN[name=" + name + ",LF=" + to_string(LF) + ",EXP=" + to_string(EXP) + ",unitList=" + (unitList ? unitList->str() : "[]") + ",battleField=" + battleField->str() + "]";
+    }
+};
+
+struct Node
+{
+    Unit *unit;
+    Node *next;
+    Node(Unit *u) : unit(u), next(nullptr) {}
+};
+
+// UnitList class implementation
+class UnitList
+{
+private:
+    Node *head;
+    int count_vehicle, count_infantry;
+    int capacity;
+
+public:
+    UnitList(int cap) : head(nullptr), count_vehicle(0), count_infantry(0), capacity(cap) {}
+
+    ~UnitList()
+    {
+        Node *current = head;
+        while (current)
+        {
+            Node *next = current->next;
+            delete current->unit;
+            delete current;
+            current = next;
+        }
+    }
+
+    bool insert(Unit *unit)
+    {
+        if ((count_vehicle + count_infantry) >= capacity)
+            return false;
+
+        Node *newNode = new Node(unit);
+        if (dynamic_cast<Vehicle *>(unit))
+        { // Add vehicle to end
+            count_vehicle++;
+            if (!head)
+            {
+                head = newNode;
+            }
+            else
+            {
+                Node *current = head;
+                while (current->next)
+                    current = current->next;
+                current->next = newNode;
+            }
+        }
+        else
+        { // Add infantry to front
+            count_infantry++;
+            newNode->next = head;
+            head = newNode;
+        }
+        // if (static_cast<int>(vehicleType) == static_cast<int>(v->getAttackScore() / 304 * 30 - v->weight * v->weight))
+    }
+
+    bool isContain(VehicleType vehicleType)
+    {
+        Node *current = head;
+        while (current)
+        {
+            if (Vehicle *v = dynamic_cast<Vehicle *>(current->unit))
+            {
+                // if (static_cast<int>(vehicleType) == static_cast<int>(v->getAttackScore() / 304 * 30 - v->quantity * v->weight))
+                    return true;
+            }
+            current = current->next;
+        }
+        // if (static_cast<int>(infantryType) == static_cast<int>(i->getAttackScore() / 56 - i->getQuantity() * i->getWeight()))
+    }
+
+    bool isContain(InfantryType infantryType)
+    {
+        Node *current = head;
+        while (current)
+        {
+            if (Infantry *i = dynamic_cast<Infantry *>(current->unit))
+            {
+                // if (static_cast<int>(infantryType) == static_cast<int>(i->getAttackScore() / 56 - i->quantity * i->weight))
+                    return true;
+            }
+            current = current->next;
+        }
+        return false;
+    }
+
+    string str() const
+    {
+        string result = "UnitList[count_vehicle=" + to_string(count_vehicle) + ";count_infantry=" +
+                        to_string(count_infantry) + ";";
+        Node *current = head;
+        while (current)
+        {
+            result += current->unit->str();
+            if (current->next)
+                result += ",";
+            current = current->next;
+        }
+        return result + "]";
+    }
+};
+
+////////////////////////////////////////////////
+/// END OF STUDENT'S ANSWER
+////////////////////////////////////////////////

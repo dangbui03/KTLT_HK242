@@ -77,6 +77,7 @@ public:
     Position getCurrentPosition() const;
     virtual string str() const = 0;
     int getQuantity() const { return quantity; }
+    int getWeight() const { return weight; }
     void increaseQuantity(int delta) { quantity += delta; }
     void scaleQuantity(double factor) // nhân & làm tròn lên
     {

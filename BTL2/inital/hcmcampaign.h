@@ -153,36 +153,42 @@ public:
     virtual ~TerrainElement() {}
     virtual void getEffect(Army *army) = 0;
 };
+// ======================= ROAD: TERRAIN     ====================================
 class Road : public TerrainElement
 {
 public:
     using TerrainElement::TerrainElement;
     void getEffect(Army *) override {}
 };
+// ======================= MOUNTAIN: TERRAIN     ====================================
 class Mountain : public TerrainElement
 {
 public:
     using TerrainElement::TerrainElement;
     void getEffect(Army *) override;
 };
+// ======================= RIVER: TERRAIN     ====================================
 class River : public TerrainElement
 {
 public:
     using TerrainElement::TerrainElement;
     void getEffect(Army *) override;
 };
+// ======================= URBAN: TERRAIN     ====================================
 class Urban : public TerrainElement
 {
 public:
     using TerrainElement::TerrainElement;
     void getEffect(Army *) override;
 };
+// ======================= FORTIFICATION: TERRAIN     ====================================
 class Fortification : public TerrainElement
 {
 public:
     using TerrainElement::TerrainElement;
     void getEffect(Army *) override;
 };
+// ======================= SPECIAL ZONE: TERRAIN     ====================================
 class SpecialZone : public TerrainElement
 {
 public:

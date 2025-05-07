@@ -189,6 +189,7 @@ public:
     void getEffect(Army *) override;
 };
 // ======================= SPECIAL ZONE: TERRAIN     ====================================
+
 class SpecialZone : public TerrainElement
 {
 public:

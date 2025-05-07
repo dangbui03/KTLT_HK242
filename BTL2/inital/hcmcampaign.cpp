@@ -274,7 +274,18 @@ int Infantry::getAttackScore()
 
 string Infantry::str() const
 {
-    return "Infantry[infantryType=" + to_string(static_cast<int>(infantryType)) +
+    string infantryTypeStr;
+    switch (infantryType) {
+        case SNIPER: infantryTypeStr = "SNIPER"; break;
+        case ANTIAIRCRAFTSQUAD: infantryTypeStr = "ANTIAIRCRAFTSQUAD"; break;
+        case MORTARSQUAD: infantryTypeStr = "MORTARSQUAD"; break;
+        case ENGINEER: infantryTypeStr = "ENGINEER"; break;
+        case SPECIALFORCES: infantryTypeStr = "SPECIALFORCES"; break;
+        case REGULARINFANTRY: infantryTypeStr = "REGULARINFANTRY"; break;
+        default: infantryTypeStr = "Unknown"; break;
+    }
+    
+    return "Infantry[infantryType=" + infantryTypeStr +
            ",quantity=" + to_string(quantity) +
            ",weight=" + to_string(weight) +
            ",pos=" + pos.str() + "]";

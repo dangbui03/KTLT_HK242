@@ -683,68 +683,46 @@ TerrainElement *BattleField::at(int r, int c) const
 }
 
 bool Army::isSpecial(int S) {
-    // Check if S is a special number in any odd prime base less than 10
-    // Odd primes less than 10: 3, 5, 7
-    int bases[] = {3, 5, 7};
-    
-    for (int base : bases) {
-        int temp = S;
-        int powerSum = 0;
-        int power = 1;
-        int p = 0;
-        
-        while (power <= temp) {
-            power = pow(base, p);
-            p++;
-        }
-        p--; // Back to max valid power
-        
-        while (p >= 0) {
-            power = pow(base, p);
-            if (temp >= power) {
-                temp -= power;
-                powerSum += power;
-            }
-            p--;
-        }
-        
-        if (powerSum == S) {
-            return true;
-        }
+    // Check if S is a special number according to the assignment requirements
+    // For example, if S is a prime number
+    if (S <= 1) return false;
+    for (int i = 2; i * i <= S; i++) {
+        if (S % i == 0) return false;
     }
-    
-    return false;
+    return true;
 }
 
 Army::Army(Unit** unitArray, int size, string name, BattleField* bf) 
     : LF(0), EXP(0), name(name), battleField(bf) {
     
-    // Calculate total strength to determine capacity
-    int totalStrength = 0;
-    for (int i = 0; i < size; i++) {
-        totalStrength += unitArray[i]->getAttackScore();
-    }
+    // Calculate the capacity for the unit list based on size
+    // Use isSpecial helper to determine capacity
+    int capacity = isSpecial(size) ? 2 * size : size;
     
-    // Determine capacity based on total strength
-    int capacity = isSpecial(totalStrength) ? 12 : 8;
-    
-    // Create unit list
+    // Create the unit list with the calculated capacity
     unitList = new UnitList(capacity);
     
-    // Add units to list and calculate LF and EXP
+    // Insert each unit into the unitList and calculate LF and EXP
     for (int i = 0; i < size; i++) {
         if (unitList->insert(unitArray[i])) {
-            if (dynamic_cast<Vehicle*>(unitArray[i])) {
-                LF += unitArray[i]->getAttackScore();
+            // Check if the unit is a Vehicle or Infantry
+            Vehicle* vehicle = dynamic_cast<Vehicle*>(unitArray[i]);
+            if (vehicle) {
+                // It's a Vehicle, add to LF
+                LF += vehicle->getAttackScore();
             } else {
-                EXP += unitArray[i]->getAttackScore();
+                // It's an Infantry, add to EXP
+                Infantry* infantry = dynamic_cast<Infantry*>(unitArray[i]);
+                if (infantry) {
+                    EXP += infantry->getAttackScore();
+                }
             }
         }
     }
     
-    // Ensure LF and EXP are within range
-    if (LF > 1000) LF = 1000;
-    if (EXP > 500) EXP = 500;
+    // Ensure LF and EXP are within their valid ranges
+    LF = std::min(1000, std::max(0, LF));
+    EXP = std::min(500, std::max(0, EXP));
 }
 
 Army::~Army() {
@@ -752,20 +730,28 @@ Army::~Army() {
 }
 
 void Army::recalcIndices() {
+    // Reset LF and EXP
     LF = 0;
     EXP = 0;
     
-    unitList->forEach([&](Unit* unit) {
-        if (dynamic_cast<Vehicle*>(unit)) {
-            LF += unit->getAttackScore();
+    // Recalculate by iterating through all units
+    unitList->forEach([this](Unit* unit) {
+        Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
+        if (vehicle) {
+            // It's a Vehicle
+            LF += vehicle->getAttackScore();
         } else {
-            EXP += unit->getAttackScore();
+            // It's an Infantry
+            Infantry* infantry = dynamic_cast<Infantry*>(unit);
+            if (infantry) {
+                EXP += infantry->getAttackScore();
+            }
         }
     });
     
-    // Ensure LF and EXP are within range
-    if (LF > 1000) LF = 1000;
-    if (EXP > 500) EXP = 500;
+    // Ensure LF and EXP are within their valid ranges
+    LF = std::min(1000, std::max(0, LF));
+    EXP = std::min(500, std::max(0, EXP));
 }
 
 // ======================= LIBERATION ARMY ============================

@@ -123,7 +123,7 @@ int Vehicle::getAttackScore()
 
 string Vehicle::str() const
 {
-    return "Vehicle[vehicleType=" + to_string(static_cast<int>(vehicleType)) +
+    return "Vehicle[vehicleType=" + vehicleTypeToString(vehicleType) +
            ",quantity=" + to_string(quantity) +
            ",weight=" + to_string(weight) +
            ",pos=" + pos.str() + "]";
@@ -1186,3 +1186,123 @@ string Configuration::str() const {
 ////////////////////////////////////////////////
 /// END OF STUDENT'S ANSWER
 ////////////////////////////////////////////////
+
+// Constructor
+HCMCampaign::HCMCampaign(const string &config_file_path)
+{
+    // Initialize the configuration by loading from the provided file
+    config = new Configuration(config_file_path);
+    
+    // Create the battlefield using configuration data
+    battleField = new BattleField(
+        config->rows(), 
+        config->cols(), 
+        config->forest(), 
+        config->river(), 
+        config->fort(), 
+        config->urban(), 
+        config->special()
+    );
+    
+    // Create the armies
+    Unit** libUnits = config->libArray();
+    int libSize = config->libSize();
+    liberationArmy = new LiberationArmy(libUnits, libSize, "Liberation Army", battleField);
+    
+    Unit** arvnUnits = config->arvnArray();
+    int arvnSize = config->arvnSize();
+    arvn = new ARVN(arvnUnits, arvnSize, "Army of Republic of Vietnam", battleField);
+}
+
+// Destructor
+HCMCampaign::~HCMCampaign()
+{
+    // Clean up allocated memory
+    if (config) {
+        delete config;
+        config = nullptr;
+    }
+    
+    if (battleField) {
+        delete battleField;
+        battleField = nullptr;
+    }
+    
+    if (liberationArmy) {
+        delete liberationArmy;
+        liberationArmy = nullptr;
+    }
+    
+    if (arvn) {
+        delete arvn;
+        arvn = nullptr;
+    }
+}
+
+// Run the campaign simulation
+void HCMCampaign::run()
+{
+    // Apply terrain effects to both armies
+    for (int i = 0; i < config->rows(); i++) {
+        for (int j = 0; j < config->cols(); j++) {
+            TerrainElement* terrain = battleField->at(i, j);
+            if (terrain) {
+                terrain->getEffect(liberationArmy);
+                terrain->getEffect(arvn);
+            }
+        }
+    }
+    
+    // Get event code from configuration
+    int eventCode = config->getEventCode();
+    
+    // Execute events based on event code
+    if (eventCode == 1) {
+        // Liberation Army attacks ARVN
+        liberationArmy->fight(arvn, false); // offense
+    }
+    else if (eventCode == 2) {
+        // ARVN attacks Liberation Army
+        arvn->fight(liberationArmy, false); // offense
+    }
+    else if (eventCode == 3) {
+        // Both armies attack each other
+        liberationArmy->fight(arvn, false); // offense
+        arvn->fight(liberationArmy, false); // offense
+    }
+    else if (eventCode == 4) {
+        // Liberation Army attacks, ARVN defends
+        liberationArmy->fight(arvn, false); // offense
+        arvn->fight(liberationArmy, true);  // defense
+    }
+    else if (eventCode == 5) {
+        // ARVN attacks, Liberation Army defends
+        arvn->fight(liberationArmy, false); // offense
+        liberationArmy->fight(arvn, true);  // defense
+    }
+    // Additional event codes could be handled here
+}
+
+// Print the results of the campaign
+string HCMCampaign::printResult()
+{
+    string result = "Campaign Result:\n";
+    result += "- Liberation Army: " + liberationArmy->str() + "\n";
+    result += "- ARVN: " + arvn->str() + "\n";
+    
+    // Determine the winner based on LF and EXP values
+    int libTotal = liberationArmy->getLF() + liberationArmy->getEXP();
+    int arvnTotal = arvn->getLF() + arvn->getEXP();
+    
+    if (libTotal > arvnTotal) {
+        result += "Winner: Liberation Army";
+    } 
+    else if (arvnTotal > libTotal) {
+        result += "Winner: ARVN";
+    }
+    else {
+        result += "Result: Draw";
+    }
+    
+    return result;
+}

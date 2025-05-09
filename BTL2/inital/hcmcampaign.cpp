@@ -126,7 +126,7 @@ string Vehicle::str() const
     return "Vehicle[vehicleType=" + vehicleTypeToString(vehicleType) +
            ",quantity=" + to_string(quantity) +
            ",weight=" + to_string(weight) +
-           ",pos=" + pos.str() + "]";
+           ",position=" + pos.str() + "]";
 }
 #pragma endregion Vehicle
 
@@ -288,7 +288,7 @@ string Infantry::str() const
     return "Infantry[infantryType=" + infantryTypeStr +
            ",quantity=" + to_string(quantity) +
            ",weight=" + to_string(weight) +
-           ",pos=" + pos.str() + "]";
+           ",position=" + pos.str() + "]";
 }
 #pragma endregion Infantry
 
@@ -895,28 +895,29 @@ string ARVN::str() const {
 
 // ======================= CONFIGURATION ==============================
 Configuration::Configuration(const string& filepath) {
-    // Default values
+    // Initialize defaults
     num_rows = 0;
     num_cols = 0;
     eventCode = 0;
     
-    // Open file
     ifstream file(filepath);
     if (!file.is_open()) {
-        return;
+        return; // Failed to open file
     }
     
     string line;
     while (getline(file, line)) {
-        // Skip empty lines
-        if (line.empty()) continue;
+        // Skip empty lines or comments
+        if (line.empty() || line[0] == '/' || line[0] == '#') {
+            continue;
+        }
         
-        // Parse line
-        size_t pos = line.find('=');
-        if (pos == string::npos) continue;
+        // Find the key-value separator
+        size_t equalPos = line.find('=');
+        if (equalPos == string::npos) continue;
         
-        string key = line.substr(0, pos);
-        string value = line.substr(pos + 1);
+        string key = line.substr(0, equalPos);
+        string value = line.substr(equalPos + 1);
         
         if (key == "NUM_ROWS") {
             num_rows = stoi(value);
@@ -924,170 +925,213 @@ Configuration::Configuration(const string& filepath) {
             num_cols = stoi(value);
         } else if (key == "EVENT_CODE") {
             eventCode = stoi(value);
-            // Adjust event code
-            if (eventCode > 99) {
-                eventCode %= 100;
-            } else if (eventCode < 0) {
-                eventCode = 0;
-            }
         } else if (key == "ARRAY_FOREST") {
-            // Parse positions from value
-            size_t start = value.find('[');
-            size_t end = value.find(']');
-            if (start != string::npos && end != string::npos) {
-                string posArray = value.substr(start + 1, end - start - 1);
-                stringstream ss(posArray);
-                string posStr;
-                while (getline(ss, posStr, ',')) {
-                    Position* pos = parsePos(posStr);
-                    if (pos) arrForest.push_back(pos);
-                }
-            }
+            // Parse forest positions directly
+            parsePositionArray(value, arrForest);
         } else if (key == "ARRAY_RIVER") {
-            // Parse positions from value
-            size_t start = value.find('[');
-            size_t end = value.find(']');
-            if (start != string::npos && end != string::npos) {
-                string posArray = value.substr(start + 1, end - start - 1);
-                stringstream ss(posArray);
-                string posStr;
-                while (getline(ss, posStr, ',')) {
-                    Position* pos = parsePos(posStr);
-                    if (pos) arrRiver.push_back(pos);
-                }
-            }
+            parsePositionArray(value, arrRiver);
         } else if (key == "ARRAY_FORTIFICATION") {
-            // Parse positions from value
-            size_t start = value.find('[');
-            size_t end = value.find(']');
-            if (start != string::npos && end != string::npos) {
-                string posArray = value.substr(start + 1, end - start - 1);
-                stringstream ss(posArray);
-                string posStr;
-                while (getline(ss, posStr, ',')) {
-                    Position* pos = parsePos(posStr);
-                    if (pos) arrFort.push_back(pos);
-                }
-            }
+            parsePositionArray(value, arrFort);
         } else if (key == "ARRAY_URBAN") {
-            // Parse positions from value
-            size_t start = value.find('[');
-            size_t end = value.find(']');
-            if (start != string::npos && end != string::npos) {
-                string posArray = value.substr(start + 1, end - start - 1);
-                stringstream ss(posArray);
-                string posStr;
-                while (getline(ss, posStr, ',')) {
-                    Position* pos = parsePos(posStr);
-                    if (pos) arrUrban.push_back(pos);
-                }
-            }
+            parsePositionArray(value, arrUrban);
         } else if (key == "ARRAY_SPECIAL_ZONE") {
-            // Parse positions from value
-            size_t start = value.find('[');
-            size_t end = value.find(']');
-            if (start != string::npos && end != string::npos) {
-                string posArray = value.substr(start + 1, end - start - 1);
-                stringstream ss(posArray);
-                string posStr;
-                while (getline(ss, posStr, ',')) {
-                    Position* pos = parsePos(posStr);
-                    if (pos) arrSpecial.push_back(pos);
-                }
-            }
+            parsePositionArray(value, arrSpecial);
         } else if (key == "UNIT_LIST") {
-            // Parse units from value
-            size_t start = value.find('[');
-            size_t end = value.rfind(']');
-            if (start != string::npos && end != string::npos) {
-                string unitArray = value.substr(start + 1, end - start - 1);
-                // Parse individual units
-                size_t unitStart = 0;
-                size_t unitEnd = unitArray.find("),");
-                while (unitEnd != string::npos) {
-                    string unitStr = unitArray.substr(unitStart, unitEnd - unitStart + 1);
-                    parseUnit(unitStr);
-                    unitStart = unitEnd + 2;
-                    unitEnd = unitArray.find("),", unitStart);
-                }
-                // Parse last unit
-                string unitStr = unitArray.substr(unitStart);
-                parseUnit(unitStr);
-            }
+            // Parse unit list directly
+            parseUnitListValue(value);
         }
     }
     
     file.close();
 }
 
-Configuration::~Configuration() {
-    // Free allocated memory
-    for (auto pos : arrForest) delete pos;
-    for (auto pos : arrRiver) delete pos;
-    for (auto pos : arrFort) delete pos;
-    for (auto pos : arrUrban) delete pos;
-    for (auto pos : arrSpecial) delete pos;
+// Helper method to parse position arrays like "[(1,2),(3,5)]"
+void Configuration::parsePositionArray(const string& value, vector<Position*>& posArray) {
+    // Extract content between brackets
+    size_t start = value.find('[');
+    size_t end = value.rfind(']');
     
-    for (auto unit : liberationUnits) delete unit;
-    for (auto unit : ARVNUnits) delete unit;
+    if (start == string::npos || end == string::npos || start >= end) {
+        return;  // Invalid format
+    }
+    
+    string content = value.substr(start + 1, end - start - 1);
+    
+    // Handle empty array
+    if (content.empty()) {
+        return;
+    }
+    
+    // Split by positions
+    int nestedLevel = 0;
+    string currentPos;
+    
+    for (size_t i = 0; i < content.length(); i++) {
+        char c = content[i];
+        if (c == '(') {
+            nestedLevel++;
+            currentPos += c;
+        } else if (c == ')') {
+            nestedLevel--;
+            currentPos += c;
+            
+            if (nestedLevel == 0) {
+                // Position complete, parse it
+                Position* pos = parsePos(currentPos);
+                posArray.push_back(pos);
+                currentPos.clear();
+                
+                // Skip comma and whitespace
+                while (i + 1 < content.length() && (content[i + 1] == ',' || isspace(content[i + 1]))) {
+                    i++;
+                }
+            }
+        } else {
+            currentPos += c;
+        }
+    }
 }
 
+void Configuration::parseUnitListValue(const string& value) {
+    // Extract content between brackets
+    size_t start = value.find('[');
+    size_t end = value.rfind(']');
+    
+    if (start == string::npos || end == string::npos || start >= end) {
+        return;  // Invalid format
+    }
+    
+    string content = value.substr(start + 1, end - start - 1);
+    
+    // Handle empty array
+    if (content.empty()) {
+        return;
+    }
+    
+    // Split by units
+    int nestedLevel = 0;
+    string currentUnit;
+    
+    for (size_t i = 0; i < content.length(); i++) {
+        char c = content[i];
+        if (c == '(') {
+            nestedLevel++;
+            currentUnit += c;
+        } else if (c == ')') {
+            nestedLevel--;
+            currentUnit += c;
+            
+            if (nestedLevel == 0) {
+                // End of unit parameters
+                if (!currentUnit.empty()) {
+                    parseUnit(currentUnit);
+                    currentUnit.clear();
+                }
+                
+                // Skip comma and whitespace if present
+                while (i + 1 < content.length() && (content[i + 1] == ',' || isspace(content[i + 1]))) {
+                    i++;
+                }
+            }
+        } else {
+            currentUnit += c;
+        }
+    }
+    
+    // Parse the last unit if any
+    if (!currentUnit.empty()) {
+        parseUnit(currentUnit);
+    }
+}
+
+
 Position* Configuration::parsePos(const string& token) {
-    // Remove whitespace
-    string t = token;
-    t.erase(remove_if(t.begin(), t.end(), ::isspace), t.end());
+    // Parse position string like "(1,2)"
+    int start = token.find('(') + 1;
+    int comma = token.find(',');
+    int end = token.find(')');
     
-    if (t.length() < 5) return nullptr; // Minimum "(r,c)"
+    if (start > 0 && comma > start && end > comma) {
+        string r_str = token.substr(start, comma - start);
+        string c_str = token.substr(comma + 1, end - comma - 1);
+        
+        try {
+            int r = stoi(r_str);
+            int c = stoi(c_str);
+            return new Position(r, c);
+        } catch (const std::exception& e) {
+            // Handle parsing error
+        }
+    }
     
-    return new Position(t);
+    // Return default position if parsing fails
+    return new Position(0, 0);
 }
 
 void Configuration::parseUnit(const string& token) {
-    // Parse unit type and parameters
-    size_t nameEnd = token.find('(');
-    if (nameEnd == string::npos) return;
+    // Example token: "TANK(5,2,(1,2),0)"
     
-    string unitType = token.substr(0, nameEnd);
+    // Extract unit type
+    int openParen = token.find('(');
+    if (openParen == string::npos) return;
     
-    // Parse parameters
-    string params = token.substr(nameEnd + 1, token.length() - nameEnd - 2);
-    stringstream ss(params);
-    string quantityStr, weightStr, posStr, armyStr;
+    string unitType = token.substr(0, openParen);
     
-    getline(ss, quantityStr, ',');
-    getline(ss, weightStr, ',');
+    // Extract parameters
+    string params = token.substr(openParen + 1);
+    params = params.substr(0, params.length() - 1); // Remove closing paren
     
-    // Extract position
-    size_t posStart = params.find('(');
-    size_t posEnd = params.find(')');
-    posStr = params.substr(posStart, posEnd - posStart + 1);
+    // Split parameters by commas, being careful with nested parentheses
+    vector<string> paramList;
+    int nestedLevel = 0;
+    string currentParam;
     
-    // Get army
-    size_t lastComma = params.rfind(',');
-    armyStr = params.substr(lastComma + 1);
+    for (char c : params) {
+        if (c == '(') {
+            nestedLevel++;
+            currentParam += c;
+        } else if (c == ')') {
+            nestedLevel--;
+            currentParam += c;
+        } else if (c == ',' && nestedLevel == 0) {
+            // End of parameter
+            paramList.push_back(currentParam);
+            currentParam.clear();
+        } else {
+            currentParam += c;
+        }
+    }
     
-    int quantity = stoi(quantityStr);
-    int weight = stoi(weightStr);
-    Position pos(posStr);
-    int army = stoi(armyStr);
+    // Add the last parameter
+    if (!currentParam.empty()) {
+        paramList.push_back(currentParam);
+    }
     
-    Unit* unit = nullptr;
+    // We should have 4 parameters: quantity, weight, position, army type (0=lib, 1=arvn)
+    if (paramList.size() < 4) return;
+    
+    int quantity = stoi(paramList[0]);
+    int weight = stoi(paramList[1]);
+    Position pos = *parsePos(paramList[2]);
+    int armyType = stoi(paramList[3]);
     
     // Create appropriate unit based on type
+    Unit* unit = nullptr;
+    
     if (unitType == "TANK") {
         unit = new Vehicle(quantity, weight, pos, TANK);
-    } else if (unitType == "ARTILLERY") {
-        unit = new Vehicle(quantity, weight, pos, ARTILLERY);
-    } else if (unitType == "ARMOREDCAR") {
-        unit = new Vehicle(quantity, weight, pos, ARMOREDCAR);
-    } else if (unitType == "APC") {
-        unit = new Vehicle(quantity, weight, pos, APC);
     } else if (unitType == "TRUCK") {
         unit = new Vehicle(quantity, weight, pos, TRUCK);
     } else if (unitType == "MORTAR") {
         unit = new Vehicle(quantity, weight, pos, MORTAR);
     } else if (unitType == "ANTIAIRCRAFT") {
         unit = new Vehicle(quantity, weight, pos, ANTIAIRCRAFT);
+    } else if (unitType == "ARMOREDCAR") {
+        unit = new Vehicle(quantity, weight, pos, ARMOREDCAR);
+    } else if (unitType == "APC") {
+        unit = new Vehicle(quantity, weight, pos, APC);
+    } else if (unitType == "ARTILLERY") {
+        unit = new Vehicle(quantity, weight, pos, ARTILLERY);
     } else if (unitType == "SNIPER") {
         unit = new Infantry(quantity, weight, pos, SNIPER);
     } else if (unitType == "ANTIAIRCRAFTSQUAD") {
@@ -1103,12 +1147,25 @@ void Configuration::parseUnit(const string& token) {
     }
     
     if (unit) {
-        if (army == 0) {
+        // Add to appropriate army list
+        if (armyType == 0) {
             liberationUnits.push_back(unit);
         } else {
             ARVNUnits.push_back(unit);
         }
     }
+}
+
+Configuration::~Configuration() {
+    // Free allocated memory
+    for (auto pos : arrForest) delete pos;
+    for (auto pos : arrRiver) delete pos;
+    for (auto pos : arrFort) delete pos;
+    for (auto pos : arrUrban) delete pos;
+    for (auto pos : arrSpecial) delete pos;
+    
+    for (auto unit : liberationUnits) delete unit;
+    for (auto unit : ARVNUnits) delete unit;
 }
 
 Unit** Configuration::libArray() {
@@ -1140,47 +1197,66 @@ int Configuration::arvnSize() const {
 }
 
 string Configuration::str() const {
-    string result = "Configuration[\n";
-    result += "num_rows=" + to_string(num_rows) + "\n";
-    result += "num_cols=" + to_string(num_cols) + "\n";
+    string result = "[num_rows=" + to_string(num_rows) + 
+                   ",num_cols=" + to_string(num_cols) + 
+                   ",arrayForest=[";
     
-    result += "eventCode=" + to_string(eventCode) + "\n";
-    result += "forest=[";
-    for (auto pos : arrForest) {
-        result += pos->str() + ",";
+    // Format forest positions
+    for (size_t i = 0; i < arrForest.size(); i++) {
+        result += arrForest[i]->str();
+        if (i < arrForest.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "river=[";
-    for (auto pos : arrRiver) {
-        result += pos->str() + ",";
+    
+    result += "],arrayRiver=[";
+    
+    // Format river positions
+    for (size_t i = 0; i < arrRiver.size(); i++) {
+        result += arrRiver[i]->str();
+        if (i < arrRiver.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "fortification=[";
-    for (auto pos : arrFort) {
-        result += pos->str() + ",";
+    
+    result += "],arrayFortification=[";
+    
+    // Format fortification positions
+    for (size_t i = 0; i < arrFort.size(); i++) {
+        result += arrFort[i]->str();
+        if (i < arrFort.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "urban=[";
-    for (auto pos : arrUrban) {
-        result += pos->str() + ",";
+    
+    result += "],arrayUrban=[";
+    
+    // Format urban positions
+    for (size_t i = 0; i < arrUrban.size(); i++) {
+        result += arrUrban[i]->str();
+        if (i < arrUrban.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "special=[";
-    for (auto pos : arrSpecial) {
-        result += pos->str() + ",";
+    
+    result += "],arraySpecialZone=[";
+    
+    // Format special positions
+    for (size_t i = 0; i < arrSpecial.size(); i++) {
+        result += arrSpecial[i]->str();
+        if (i < arrSpecial.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "liberationUnits=[";
-    for (auto unit : liberationUnits) {
-        result += unit->str() + ",";
+    
+    result += "],liberationUnits=[";
+    
+    // Format liberation units
+    for (size_t i = 0; i < liberationUnits.size(); i++) {
+        result += liberationUnits[i]->str();
+        if (i < liberationUnits.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "ARVNUnits=[";
-    for (auto unit : ARVNUnits) {
-        result += unit->str() + ",";
+    
+    result += "],ARVNUnits=[";
+    
+    // Format ARVN units
+    for (size_t i = 0; i < ARVNUnits.size(); i++) {
+        result += ARVNUnits[i]->str();
+        if (i < ARVNUnits.size() - 1) result += ",";
     }
-    result += "]\n";
-    result += "]\n";
+    
+    result += "],eventCode=" + to_string(eventCode) + "]";
+    
     return result;
 }
 ////////////////////////////////////////////////

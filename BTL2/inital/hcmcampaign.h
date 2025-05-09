@@ -255,6 +255,9 @@ class Configuration
     void parseUnit(const string &token);
     Position *parsePos(const string &token);
 
+    void parsePositionArray(const string &value, vector<Position*> &posArray);
+    void parseUnitListValue(const string &value);
+
 public:
     Configuration(const string &filepath);
     ~Configuration();

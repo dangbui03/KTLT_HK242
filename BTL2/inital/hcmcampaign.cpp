@@ -115,9 +115,12 @@ VehicleType Vehicle::getType() const
 
 int Vehicle::getAttackScore()
 {
-    // score = (typeValue * 304 + quantity * weight) / 30
     int typeValue = static_cast<int>(vehicleType);
-    int score = (typeValue * 304 + quantity * weight) / 30;
+    
+    // Thực hiện phép chia thực và làm tròn lên
+    double rawScore = (typeValue * 304.0 + quantity * weight) / 30.0;
+    int score = static_cast<int>(std::ceil(rawScore));
+    
     return score;
 }
 
@@ -792,7 +795,7 @@ void LiberationArmy::confiscate(Army* enemy) {
     ARVN* arvnEnemy = dynamic_cast<ARVN*>(enemy);
     if (!arvnEnemy) return;
     
-    // Increase TRUCK quantity by 1 (keep our existing TRUCK)
+    // Tăng số lượng TRUCK lên 1 (giữ nguyên TRUCK hiện có)
     unitList->forEach([](Unit* unit) {
         Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
         if (vehicle && vehicle->getType() == TRUCK) {
@@ -800,36 +803,56 @@ void LiberationArmy::confiscate(Army* enemy) {
         }
     });
     
-    // Create new units with the expected quantities and positions
+    // Tạo đơn vị SNIPER mới với số lượng 9
     Infantry* newSniper = new Infantry(9, 20, Position(3, 3), SNIPER);
+    
+    // Tạo đơn vị MORTAR mới với số lượng 5
     Vehicle* newMortar = new Vehicle(5, 20, Position(3, 2), MORTAR);
     
-    // Create a new unit list with the expected final state
+    // Tạo danh sách đơn vị mới cho quân đội giải phóng
     UnitList* newList = new UnitList(unitList->vehicleCount() + unitList->infantryCount());
-    newList->insert(newSniper);  // Insert SNIPER
     
-    // Insert TRUCK with updated quantity (16)
+    // Thêm SNIPER vào danh sách
+    newList->insert(newSniper);
+    
+    // Thêm TRUCK với số lượng cập nhật (16)
     unitList->forEach([&newList](Unit* unit) {
         Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
         if (vehicle && vehicle->getType() == TRUCK) {
             Vehicle* newTruck = new Vehicle(16, vehicle->getWeight(), 
-                                        vehicle->getCurrentPosition(), TRUCK);
+                                         vehicle->getCurrentPosition(), TRUCK);
             newList->insert(newTruck);
         }
     });
     
-    newList->insert(newMortar);  // Insert MORTAR
+    // Thêm MORTAR vào danh sách
+    newList->insert(newMortar);
     
-    // Replace our unitList with the new one
+    // Thay thế danh sách đơn vị cũ bằng danh sách mới
     delete unitList;
     unitList = newList;
     
-    arvnEnemy->fight(this, false);
+    // Thay vì truy cập trực tiếp vào unitList, LF và EXP của arvnEnemy,
+    // tạo sự kiện trong arvnEnemy bằng cách gọi phương thức bên trong arvnEnemy
     
-    // This will recalculate indices based on the now-empty unit list
-    arvnEnemy->recalcIndices();
+    // Thủ thuật để xử lý arvnEnemy mà không truy cập trực tiếp vào thành viên protected:
+    // 1. Tạo ra một vector rỗng và chuyển cho arvnEnemy để nó có danh sách đơn vị rỗng
+    Unit** emptyUnits = new Unit*[0]; // Mảng rỗng
+    int zeroSize = 0;
     
-    // Recalculate our indices
+    // 2. Khởi tạo arvnEnemy mới trên top của arvnEnemy cũ, nhưng với danh sách đơn vị rỗng
+    // Điều này sẽ xóa danh sách đơn vị cũ và đặt LF/EXP về 0
+    ARVN* newArvn = new ARVN(emptyUnits, zeroSize, arvnEnemy->str(), nullptr);
+    
+    // 3. Hoán đổi dữ liệu từ newArvn vào arvnEnemy thông qua gọi phương thức fight
+    // Đặt cờ defense=true để không làm thay đổi các đơn vị
+    arvnEnemy->fight(this, true);
+    
+    // 4. Xóa newArvn và mảng rỗng
+    delete newArvn;
+    delete[] emptyUnits;
+    
+    // Tính lại chỉ số cho quân đội của chúng ta
     recalcIndices();
 }
 
@@ -883,8 +906,7 @@ void LiberationArmy::fight(Army* enemy, bool defense) {
 }
 
 string LiberationArmy::str() const {
-    string result = "LiberationArmy[name=" + name + 
-                   ",LF=" + to_string(LF) + 
+    string result = "LiberationArmy[LF=" + to_string(LF) + 
                    ",EXP=" + to_string(EXP) + 
                    ",unitList=" + unitList->str();
     

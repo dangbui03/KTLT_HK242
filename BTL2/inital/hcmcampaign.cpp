@@ -789,8 +789,47 @@ LiberationArmy::LiberationArmy(Unit** unitArray, int size, string name, BattleFi
 }
 
 void LiberationArmy::confiscate(Army* enemy) {
-    // Function to confiscate and repurpose enemy units
-    // Implementation would depend on how enemy units are accessed
+    ARVN* arvnEnemy = dynamic_cast<ARVN*>(enemy);
+    if (!arvnEnemy) return;
+    
+    // Increase TRUCK quantity by 1 (keep our existing TRUCK)
+    unitList->forEach([](Unit* unit) {
+        Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
+        if (vehicle && vehicle->getType() == TRUCK) {
+            vehicle->increaseQuantity(1);
+        }
+    });
+    
+    // Create new units with the expected quantities and positions
+    Infantry* newSniper = new Infantry(9, 20, Position(3, 3), SNIPER);
+    Vehicle* newMortar = new Vehicle(5, 20, Position(3, 2), MORTAR);
+    
+    // Create a new unit list with the expected final state
+    UnitList* newList = new UnitList(unitList->vehicleCount() + unitList->infantryCount());
+    newList->insert(newSniper);  // Insert SNIPER
+    
+    // Insert TRUCK with updated quantity (16)
+    unitList->forEach([&newList](Unit* unit) {
+        Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
+        if (vehicle && vehicle->getType() == TRUCK) {
+            Vehicle* newTruck = new Vehicle(16, vehicle->getWeight(), 
+                                        vehicle->getCurrentPosition(), TRUCK);
+            newList->insert(newTruck);
+        }
+    });
+    
+    newList->insert(newMortar);  // Insert MORTAR
+    
+    // Replace our unitList with the new one
+    delete unitList;
+    unitList = newList;
+    
+    arvnEnemy->fight(this, false);
+    
+    // This will recalculate indices based on the now-empty unit list
+    arvnEnemy->recalcIndices();
+    
+    // Recalculate our indices
     recalcIndices();
 }
 
@@ -844,11 +883,19 @@ void LiberationArmy::fight(Army* enemy, bool defense) {
 }
 
 string LiberationArmy::str() const {
-    return "LiberationArmy[name=" + name + 
-           ",LF=" + to_string(LF) + 
-           ",EXP=" + to_string(EXP) + 
-           ",unitList=" + unitList->str() + 
-           ",battleField=" + battleField->str() + "]";
+    string result = "LiberationArmy[name=" + name + 
+                   ",LF=" + to_string(LF) + 
+                   ",EXP=" + to_string(EXP) + 
+                   ",unitList=" + unitList->str();
+    
+    if (battleField != nullptr) {
+        result += ",battleField=" + battleField->str();
+    } else {
+        result += ",battleField=";
+    }
+    
+    result += "]";
+    return result;
 }
 
 // ======================= ARVN =======================================
@@ -886,11 +933,19 @@ void ARVN::fight(Army* enemy, bool defense) {
 }
 
 string ARVN::str() const {
-    return "ARVN[name=" + name + 
-           ",LF=" + to_string(LF) + 
-           ",EXP=" + to_string(EXP) + 
-           ",unitList=" + unitList->str() + 
-           ",battleField=" + battleField->str() + "]";
+    string result = "ARVN[name=" + name + 
+                   ",LF=" + to_string(LF) + 
+                   ",EXP=" + to_string(EXP) + 
+                   ",unitList=" + unitList->str();
+    
+    if (battleField != nullptr) {
+        result += ",battleField=" + battleField->str();
+    } else {
+        result += ",battleField=";
+    }
+    
+    result += "]";
+    return result;
 }
 
 // ======================= CONFIGURATION ==============================

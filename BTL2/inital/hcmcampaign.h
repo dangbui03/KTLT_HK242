@@ -221,6 +221,7 @@ protected:
 
 public:
     void recalcIndices();         // recompute LF & EXP from list
+    UnitList* getUnitList() { return unitList; }
     Army(Unit **unitArray, int size, string name, BattleField *bf);
     virtual ~Army();
     virtual void fight(Army *enemy, bool defense = false) = 0;

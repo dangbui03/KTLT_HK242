@@ -394,7 +394,6 @@ UnitList::~UnitList()
     while (current != nullptr)
     {
         Node *next = current->next;
-        delete current->data;
         delete current;
         current = next;
     }

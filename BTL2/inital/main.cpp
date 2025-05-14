@@ -58,8 +58,20 @@ void g_satc_02() {
     delete[] unitArrayOfAr;
 }
 
+void g_satc_03() {
+    cout << "----- Sample Testcase 03 -----" << endl;
+    HCMCampaign* campaign = new HCMCampaign("config.txt");
+    cout << "** Before the fight" << endl;
+    cout << campaign->printResult() << endl;
+    cout << "** After the fight" << endl;
+    campaign->run();
+    cout << campaign->printResult() << endl;
+    delete campaign;
+}
+
 int main(int argc, const char * argv[]) {
     g_satc_01();
     g_satc_02();
+    g_satc_03();
     return 0;
 }

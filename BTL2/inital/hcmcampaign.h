@@ -78,6 +78,8 @@ public:
     virtual string str() const = 0;
     int getQuantity() const { return quantity; }
     int getWeight() const { return weight; }
+    void setQuantity(int newQuantity);
+    void setWeight(int newWeight);
     void increaseQuantity(int delta) { quantity += delta; }
     void scaleQuantity(double factor) // nhân & làm tròn lên
     {
@@ -230,14 +232,17 @@ public:
     int getEXP() const { return EXP; }
 };
 // ---------------- LiberationArmy & ARVN -----------------------------
-class LiberationArmy : public Army
-{
-    void confiscate(Army *enemy);
-
+class LiberationArmy : public Army {
 public:
-    LiberationArmy(Unit **unitArray, int size, string name, BattleField *bf);
-    void fight(Army *enemy, bool defense = false) override;
+    LiberationArmy(Unit** unitArray, int size, string name, BattleField* bf);
+    void fight(Army* enemy, bool defense = false) override;
+    void confiscate(Army* enemy);
     string str() const override;
+
+private:
+    void reduceWeights();
+    void reduceQuantities();
+    void increaseQuantitiesToFibonacci();
 };
 class ARVN : public Army
 {

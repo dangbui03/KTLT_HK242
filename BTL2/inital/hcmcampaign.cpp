@@ -77,6 +77,14 @@ void Unit::setWeight(int newWeight) {
     weight = newWeight;
 }
 
+void Unit::setCol(int c) {
+    pos.setCol(c);
+}
+
+void Unit::setRow(int r) {
+    pos.setRow(r);
+}
+
 Unit::~Unit() {};
 
 Position Unit::getCurrentPosition() const
@@ -895,20 +903,23 @@ void LiberationArmy::confiscate(Army* enemy) {
                         ov->increaseQuantity(enemyUnit->getQuantity());
                     } else {
                         ov->setQuantity(enemyUnit->getQuantity());
-                        // Assume we want to update position to enemy’s position
-                        // (Note: if pos were directly settable, you would do so here)
-                        // For example:
-                        // ov->pos = enemyUnit->getCurrentPosition();
                     }
+                    // Update position: use the maximum row and column
+                    int newRow = std::max(ov->getCurrentPosition().getRow(), enemyUnit->getCurrentPosition().getRow());
+                    int newCol = std::max(ov->getCurrentPosition().getCol(), enemyUnit->getCurrentPosition().getCol());
+                    ov->setRow(newRow);
+                    ov->setCol(newCol);
                     updated = true;
                 }
                 Infantry* ei = dynamic_cast<Infantry*>(enemyUnit);
                 Infantry* oi = dynamic_cast<Infantry*>(ownUnit);
                 if (ei && oi && (ei->getType() == oi->getType())) {
-                    // For infantry, lose some of your own force and adopt enemy’s remaining quantity
                     oi->setQuantity(enemyUnit->getQuantity());
-                    // Also update position to reflect new deployment
-                    // (again, assuming a setter or by recreating the Position)
+                    // Update position as above
+                    int newRow = std::max(oi->getCurrentPosition().getRow(), enemyUnit->getCurrentPosition().getRow());
+                    int newCol = std::max(oi->getCurrentPosition().getCol(), enemyUnit->getCurrentPosition().getCol());
+                    oi->setRow(newRow);
+                    oi->setCol(newCol);
                     updated = true;
                 }
             });

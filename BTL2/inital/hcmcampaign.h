@@ -80,6 +80,8 @@ public:
     int getWeight() const { return weight; }
     void setQuantity(int newQuantity);
     void setWeight(int newWeight);
+    void setRow(int r);
+    void setCol(int c);
     void increaseQuantity(int delta) { quantity += delta; }
     void scaleQuantity(double factor) // nhân & làm tròn lên
     {
@@ -126,6 +128,7 @@ class UnitList
     bool isVehicle(Unit *u) const;
     bool sameVehicle(Node *n, VehicleType t) const;
     bool sameInfantry(Node *n, InfantryType t) const;
+    
 
 public:
     UnitList(int capacity);
@@ -138,10 +141,57 @@ public:
     string str() const;
     // simple traversal helpers
     template <typename F>
+    
     void forEach(F func) const
     {
         for (Node *p = head; p; p = p->next)
             func(p->data);
+    }
+    
+    // Replace the removeIf declaration with this template method:
+    template <typename Predicate>
+    void removeIf(Predicate pred) {
+        Node* current = head;
+        Node* prev = nullptr;
+        
+        while (current != nullptr) {
+            // Check if we should remove this unit
+            if (pred(current->data)) {
+                // Update counters
+                if (isVehicle(current->data))
+                    sizeV--;
+                else
+                    sizeI--;
+                length--;
+                
+                // Remove node
+                Node* toDelete = current;
+                
+                if (prev == nullptr) {
+                    // Removing head node
+                    head = current->next;
+                    if (head == nullptr) {
+                        // List is now empty
+                        tail = nullptr;
+                    }
+                } else {
+                    // Removing non-head node
+                    prev->next = current->next;
+                    if (current == tail) {
+                        // Removing tail node
+                        tail = prev;
+                    }
+                }
+                
+                current = current->next;
+                delete toDelete->data;  // Free the unit
+                delete toDelete;        // Free the node
+            } else {
+                // Keep this node
+                prev = current;
+                current = current->next;
+            }
+        }
     }
 };
 // ======================= TERRAIN ====================================

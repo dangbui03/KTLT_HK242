@@ -874,47 +874,67 @@ void LiberationArmy::increaseQuantitiesToFibonacci() {
 
 void LiberationArmy::confiscate(Army* enemy) {
     ARVN* arvnEnemy = dynamic_cast<ARVN*>(enemy);
-    if (!arvnEnemy) return;
+    if (!arvnEnemy)
+        return;
     
-    // Get the enemy unit list
+    // Get enemy unit list
     UnitList* enemyUnitList = arvnEnemy->getUnitList();
     
-    // Keep track of which units we've processed to avoid duplicates
-    std::vector<Unit*> processedUnits;
-    
-    // First, iterate through enemy units and add them to our army
-    enemyUnitList->forEach([this, &processedUnits](Unit* unit) {
-        // Only confiscate units with quantity > 0
-        if (unit->getQuantity() > 0) {
-            // Create a copy of the enemy unit
-            Unit* confiscatedUnit = nullptr;
+    // For each enemy unit with quantity > 0, update our unit list accordingly
+    enemyUnitList->forEach([this](Unit* enemyUnit) {
+        if (enemyUnit->getQuantity() > 0) {
+            bool updated = false;
+            // Try to update an existing unit of the same type
+            this->unitList->forEach([&](Unit* ownUnit) {
+                Vehicle* ev = dynamic_cast<Vehicle*>(enemyUnit);
+                Vehicle* ov = dynamic_cast<Vehicle*>(ownUnit);
+                if (ev && ov && (ev->getType() == ov->getType())) {
+                    // For vehicles assume defensive types (like MORTAR) replace quantity,
+                    // whereas for TRUCK we add quantities.
+                    if (ov->getType() == TRUCK) {
+                        ov->increaseQuantity(enemyUnit->getQuantity());
+                    } else {
+                        ov->setQuantity(enemyUnit->getQuantity());
+                        // Assume we want to update position to enemy’s position
+                        // (Note: if pos were directly settable, you would do so here)
+                        // For example:
+                        // ov->pos = enemyUnit->getCurrentPosition();
+                    }
+                    updated = true;
+                }
+                Infantry* ei = dynamic_cast<Infantry*>(enemyUnit);
+                Infantry* oi = dynamic_cast<Infantry*>(ownUnit);
+                if (ei && oi && (ei->getType() == oi->getType())) {
+                    // For infantry, lose some of your own force and adopt enemy’s remaining quantity
+                    oi->setQuantity(enemyUnit->getQuantity());
+                    // Also update position to reflect new deployment
+                    // (again, assuming a setter or by recreating the Position)
+                    updated = true;
+                }
+            });
             
-            // Check if it's a vehicle or infantry
-            Vehicle* vehicle = dynamic_cast<Vehicle*>(unit);
-            if (vehicle) {
-                confiscatedUnit = new Vehicle(unit->getQuantity(), 
-                                              unit->getWeight(), 
-                                              unit->getCurrentPosition(), 
-                                              vehicle->getType());
-            } else {
-                Infantry* infantry = dynamic_cast<Infantry*>(unit);
-                if (infantry) {
-                    confiscatedUnit = new Infantry(unit->getQuantity(), 
-                                                  unit->getWeight(), 
-                                                  unit->getCurrentPosition(), 
-                                                  infantry->getType());
+            // If no matching unit found in our list, add a copy of the enemy unit
+            if (!updated) {
+                Unit* copy = nullptr;
+                Vehicle* ev = dynamic_cast<Vehicle*>(enemyUnit);
+                if (ev) {
+                    copy = new Vehicle(enemyUnit->getQuantity(), enemyUnit->getWeight(), 
+                                         enemyUnit->getCurrentPosition(), ev->getType());
+                } else {
+                    Infantry* ei = dynamic_cast<Infantry*>(enemyUnit);
+                    if (ei) {
+                        copy = new Infantry(enemyUnit->getQuantity(), enemyUnit->getWeight(), 
+                                              enemyUnit->getCurrentPosition(), ei->getType());
+                    }
+                }
+                if (copy) {
+                    this->unitList->insert(copy);
                 }
             }
             
-            // Insert the copy into our unit list
-            if (confiscatedUnit) {
-                this->unitList->insert(confiscatedUnit);
-                processedUnits.push_back(confiscatedUnit);
-            }
-            
-            // Set enemy unit quantity to 0
-            unit->setQuantity(0);
-            unit->setWeight(0);
+            // Remove (confiscate) the enemy unit by setting its values to zero
+            enemyUnit->setQuantity(0);
+            enemyUnit->setWeight(0);
         }
     });
     
@@ -925,72 +945,44 @@ void LiberationArmy::confiscate(Army* enemy) {
 
 void LiberationArmy::fight(Army* enemy, bool defense) {
     if (!defense) {
-        // Offensive case
-        // Multiply LF and EXP by 1.5 (for tactical decisions, not changing actual values)
+        // Offensive case: multiply tactics indices by 1.5 for evaluation
         int offensiveLF = static_cast<int>(LF * 1.5);
         int offensiveEXP = static_cast<int>(EXP * 1.5);
-        
-        // Get enemy's indices
         int enemyLF = enemy->getLF();
         int enemyEXP = enemy->getEXP();
         
-        // Check if we can win with our offensive indices
-        bool canDefeatLF = (offensiveLF > enemyLF);
-        bool canDefeatEXP = (offensiveEXP > enemyEXP);
-        
-        if (canDefeatLF && canDefeatEXP) {
-            // Complete victory - confiscate enemy units
+        // If our tactical values are higher, we win and confiscate enemy units
+        if (offensiveLF > enemyLF && offensiveEXP > enemyEXP) {
             confiscate(enemy);
-        } 
-        else if (canDefeatLF || canDefeatEXP) {
-            // Partial victory - still may win if the failing index is still stronger
-            if ((canDefeatLF && EXP > enemyEXP) || (canDefeatEXP && LF > enemyLF)) {
-                // Still win based on overall strength
-                confiscate(enemy);
-            } else {
-                // No engagement
-                reduceWeights();
-            }
-        } 
+        }
+        else if ((offensiveLF > enemyLF && EXP > enemyEXP) ||
+                 (offensiveEXP > enemyEXP && LF > enemyLF)) {
+            // Even if one index does not exceed, overall strength may secure victory
+            confiscate(enemy);
+        }
         else {
-            // No engagement
+            // If we cannot win, simulate a nonengaging battle by reducing weights slightly
             reduceWeights();
         }
         
-        // Recalculate our indices after the fight
         recalcIndices();
     } else {
-        // Defensive case
+        // Defensive case: multiply indices by 1.3 before comparing
         int defensiveLF = static_cast<int>(LF * 1.3);
         int defensiveEXP = static_cast<int>(EXP * 1.3);
-        
         int enemyLF = enemy->getLF();
         int enemyEXP = enemy->getEXP();
         
-        bool strongerLF = (defensiveLF >= enemyLF);
-        bool strongerEXP = (defensiveEXP >= enemyEXP);
-        
-        if (strongerLF && strongerEXP) {
-            // Complete defense - no losses
-            // Do nothing
-        } else if (strongerLF || strongerEXP) {
-            // Partial defense - lose 10% quantity
+        if (defensiveLF >= enemyLF && defensiveEXP >= enemyEXP) {
+            // Successful defense: no change
+        } else if (defensiveLF >= enemyLF || defensiveEXP >= enemyEXP) {
+            // Partial defense: reduce all quantities by 10%
             reduceQuantities();
         } else {
-            // Need reinforcements - increase to next Fibonacci
+            // If defense fails drastically, increase quantities to the next Fibonacci numbers
             increaseQuantitiesToFibonacci();
-            
-            // Recalculate indices
-            recalcIndices();
-            
-            // Check again with new values
-            defensiveLF = static_cast<int>(LF * 1.3);
-            defensiveEXP = static_cast<int>(EXP * 1.3);
-            
-            // Logic continues as needed...
         }
         
-        // Recalculate our indices
         recalcIndices();
     }
 }
@@ -1017,26 +1009,17 @@ ARVN::ARVN(Unit** unitArray, int size, string name, BattleField* bf)
 
 void ARVN::fight(Army* enemy, bool defense) {
     if (!defense) {
-        // Offensive case
-        // ARVN will lose and reduce quantities by 20%
+        // Offensive attack: ARVN suffers losses; reduce each unit's quantity by 20%
         unitList->forEach([](Unit* unit) {
-            unit->scaleQuantity(0.8);
+            unit->scaleQuantity(0.8); // scale (using ceil) to simulate loss
         });
-        
-        // Recalculate indices
-        recalcIndices();
     } else {
-        // Defensive case
-        // If no battle, reduce weight by 20%
-        // Note: Since actual weight reduction is not implemented in the Unit class,
-        // we'll just reduce quantity instead as a way to simulate losses
+        // Defensive: likewise reduce (or adjust) as specified
         unitList->forEach([](Unit* unit) {
             unit->scaleQuantity(0.8);
         });
-        
-        // Recalculate indices
-        recalcIndices();
     }
+    recalcIndices();
 }
 
 string ARVN::str() const {

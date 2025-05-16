@@ -455,54 +455,33 @@ bool UnitList::isContain(InfantryType infantryType)
     return false;
 }
 
-string UnitList::str() const
-{
-    // Count non-zero units for correct reporting
-    int effectiveVehicleCount = 0;
-    int effectiveInfantryCount = 0;
-    
-    // First pass to count non-zero quantity units
-    Node* current = head;
-    while (current != nullptr) {
-        if (current->data->getQuantity() > 0) {
-            if (isVehicle(current->data)) {
-                effectiveVehicleCount++;
-            } else {
-                effectiveInfantryCount++;
-            }
-        }
-        current = current->next;
+string UnitList::str() const {
+    // gom tất cả Unit* có quantity > 0
+    vector<Unit*> v;
+    for (Node* cur = head; cur; cur = cur->next)
+        if (cur->data->getQuantity() > 0) v.push_back(cur->data);
+
+    // sắp xếp: infantry trước, sau đó vehicle theo quantity giảm dần
+    sort(v.begin(), v.end(), [](Unit* a, Unit* b) {
+        bool aVeh = dynamic_cast<Vehicle*>(a) != nullptr;
+        bool bVeh = dynamic_cast<Vehicle*>(b) != nullptr;
+        if (aVeh != bVeh) return !aVeh;              // infantry < vehicle
+        return a->getQuantity() > b->getQuantity();  // cùng loại: quantity giảm dần
+    });
+
+    // đếm
+    int cntVeh = 0, cntInf = 0;
+    for (Unit* u : v) (dynamic_cast<Vehicle*>(u) ? cntVeh : cntInf)++;
+
+    // build chuỗi
+    string res = "UnitList[count_vehicle=" + to_string(cntVeh) +
+                 ";count_infantry=" + to_string(cntInf);
+    if (!v.empty()) res += ";";
+    for (size_t i = 0; i < v.size(); ++i) {
+        res += v[i]->str();
+        if (i + 1 < v.size()) res += ",";
     }
-    
-    // Format the unit list string
-    string result = "UnitList[count_vehicle=" + to_string(effectiveVehicleCount) +
-                    ";count_infantry=" + to_string(effectiveInfantryCount);
-    
-    // If there are no effective units, return early with empty list
-    if (effectiveVehicleCount == 0 && effectiveInfantryCount == 0) {
-        return result + "]";
-    }
-    
-    // Add semicolon before listing units
-    result += ";";
-    
-    // Second pass to add non-zero units to the string
-    current = head;
-    bool first = true;
-    while (current != nullptr) {
-        // Only include units with quantity > 0
-        if (current->data->getQuantity() > 0) {
-            if (!first) {
-                result += ",";
-            }
-            result += current->data->str();
-            first = false;
-        }
-        current = current->next;
-    }
-    
-    result += "]";
-    return result;
+    return res + "]";
 }
 
 

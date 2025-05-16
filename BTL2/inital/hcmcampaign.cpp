@@ -316,94 +316,6 @@ string Infantry::str() const
 }
 #pragma endregion Infantry
 
-// class Infantry : public Unit
-// {
-// private:
-//     InfantryType infantryType;
-
-//     // tìm tổng các chữ số của một số
-//     int sumOfDigits(int num)
-//     {
-//         int sum = 0;
-//         while (num > 0)
-//         {
-//             sum += num % 10;
-//             num /= 10;
-//         }
-//         return sum;
-//     }
-
-//     // Tìm số cá nhân
-//     int getPersonalScore(int score)
-//     {
-//         int personalScore = sumOfDigits(score) + sumOfDigits(1975);
-//         while (personalScore > 9)
-//         {
-//             personalScore = sumOfDigits(personalScore);
-//         }
-//         return personalScore;
-//     }
-
-//     string infantryTypeToString(InfantryType type) const
-//     {
-//         switch (type)
-//         {
-//         case SNIPER:
-//             return "SNIPER";
-//         case ANTIAIRCRAFTSQUAD:
-//             return "ANTIAIRCRAFTSQUAD";
-//         case MORTARSQUAD:
-//             return "MORTARSQUAD";
-//         case ENGINEER:
-//             return "ENGINEER";
-//         case SPECIALFORCES:
-//             return "SPECIALFORCES";
-//         case REGULARINFANTRY:
-//             return "REGULARINFANTRY";
-//         default:
-//             return "Unknown InfantryType";
-//         }
-//     }
-
-// public:
-//     Infantry(int quantity, int weight, const Position pos, InfantryType infantryType) : Unit(quantity, weight, pos), infantryType(infantryType) {}
-
-//     ~Infantry() {}
-
-//     int getAttackScore() override
-//     {
-//         int typeValue = infantryType;
-//         int score = typeValue * 56 + quantity * weight;
-
-//         if ((infantryType == SPECIALFORCES) && isPerfectSquare(weight))
-//         {
-//             score += 75;
-//         }
-
-//         int personalScore = getPersonalScore(score);
-//         if (personalScore > 7)
-//         {
-//             quantity = (int)ceil(quantity * 1.2);
-//             score = typeValue * 56 + quantity * weight;
-//         }
-//         else if (personalScore < 4)
-//         {
-//             quantity = (int)ceil(quantity * 0.9);
-//         }
-
-//         if (score > 500)
-//             score = 500;
-//         else if (score < 0)
-//             score = 0;
-//         return score;
-//     }
-
-//     string str() const override
-//     {
-//         return "Infantry[" + infantryTypeToString(infantryType) + '=' + to_string(infantryType) + "," + to_string(quantity) + "," + to_string(weight) + "," + pos.str() + "]";
-//     }
-// };
-
 // UnitList class implementation
 #pragma region UnitList
 UnitList::UnitList(int capacity)
@@ -592,6 +504,8 @@ string UnitList::str() const
     result += "]";
     return result;
 }
+
+
 #pragma endregion UnitList
 
 void Mountain::getEffect(Army *army)
@@ -901,14 +815,15 @@ void LiberationArmy::confiscate(Army* enemy) {
                     // whereas for TRUCK we add quantities.
                     if (ov->getType() == TRUCK) {
                         ov->increaseQuantity(enemyUnit->getQuantity());
+                        // For TRUCK, keep the original position (do not update)
                     } else {
                         ov->setQuantity(enemyUnit->getQuantity());
+                        // Update position: use the maximum row and column
+                        int newRow = std::max(ov->getCurrentPosition().getRow(), enemyUnit->getCurrentPosition().getRow());
+                        int newCol = std::max(ov->getCurrentPosition().getCol(), enemyUnit->getCurrentPosition().getCol());
+                        ov->setRow(newRow);
+                        ov->setCol(newCol);
                     }
-                    // Update position: use the maximum row and column
-                    int newRow = std::max(ov->getCurrentPosition().getRow(), enemyUnit->getCurrentPosition().getRow());
-                    int newCol = std::max(ov->getCurrentPosition().getCol(), enemyUnit->getCurrentPosition().getCol());
-                    ov->setRow(newRow);
-                    ov->setCol(newCol);
                     updated = true;
                 }
                 Infantry* ei = dynamic_cast<Infantry*>(enemyUnit);

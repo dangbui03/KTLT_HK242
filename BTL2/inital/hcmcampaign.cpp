@@ -386,7 +386,7 @@ bool UnitList::insert(Unit *unit)
             {
                 // Update quantity
                 current->data->increaseQuantity(unit->getQuantity());
-                delete newNode->data;
+                // DO NOT delete the unit data, just the node
                 delete newNode;
                 return true;
             }
@@ -408,7 +408,7 @@ bool UnitList::insert(Unit *unit)
             {
                 // Update quantity
                 current->data->increaseQuantity(unit->getQuantity());
-                delete newNode->data;
+                // DO NOT delete the unit data, just the node
                 delete newNode;
                 return true;
             }

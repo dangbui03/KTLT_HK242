@@ -88,11 +88,35 @@ void g_satc_04()
     cout << liberationArmy8->str() << endl;
 }
 
+// ------------------- This section is for Testcase Forum's Test Cases -------------------
+//  BÙI HỮU LỢI
+void tc1(){ 
+    cout << "----- Sample Testcase 06 -----" << endl;
+    Unit** unitArrayOfLiber6 = new Unit*[1];
+    Vehicle tankOfLiber6(20, 20, Position(1, 2), MORTAR);
+    unitArrayOfLiber6[0] = &tankOfLiber6;
+    LiberationArmy* liberationArmy6 = new LiberationArmy(unitArrayOfLiber6, 0, "LiberationArmy", 0);
+    cout << liberationArmy6->str() << endl;
+}
+
+// VÕ ĐÌNH TRÍ
+void tc2() {
+    cout << "----- Sample Testcase 03 -----" << endl;
+    HCMCampaign* campaign = new HCMCampaign("config.txt");
+    cout << "** Before the fight" << endl;
+    cout << campaign->printResult() << endl;
+    cout << "** After the fight" << endl;
+    campaign->run();
+    cout << campaign->printResult() << endl;
+    delete campaign;
+}
 int main(int argc, const char *argv[])
 {
     g_satc_01();
     g_satc_02();
     g_satc_03();
     g_satc_04();
+    tc1();
+    tc2();
     return 0;
 }

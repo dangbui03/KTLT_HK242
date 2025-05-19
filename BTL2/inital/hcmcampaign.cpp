@@ -353,6 +353,7 @@ bool UnitList::sameInfantry(Node *n, InfantryType t) const
     return i->getType() == t;
 }
 
+// Modified UnitList::insert method
 bool UnitList::insert(Unit *unit)
 {
     // Check if list is full
@@ -386,6 +387,10 @@ bool UnitList::insert(Unit *unit)
             {
                 // Update quantity
                 current->data->increaseQuantity(unit->getQuantity());
+                
+                // Just call getAttackScore to update the score (it's also calculated in recalcIndices later)
+                current->data->getAttackScore();
+                
                 // DO NOT delete the unit data, just the node
                 delete newNode;
                 return true;
@@ -406,8 +411,19 @@ bool UnitList::insert(Unit *unit)
         {
             if (sameInfantry(current, i->getType()))
             {
+                // First store the original quantity
+                int originalQuantity = current->data->getQuantity();
+                
                 // Update quantity
                 current->data->increaseQuantity(unit->getQuantity());
+                
+                // Now force recalculation of attack score which will apply the special infantry logic
+                Infantry* infantry = dynamic_cast<Infantry*>(current->data);
+                if (infantry) {
+                    // Call getAttackScore() to apply reinforcements/desertions
+                    infantry->getAttackScore();
+                }
+                
                 // DO NOT delete the unit data, just the node
                 delete newNode;
                 return true;
